@@ -3,18 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>철쭉축제 인생샷 필터</title>
+  <title>철쭉축제 필터</title>
   <script src="https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/jeelizFaceFilter.umd.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; position: fixed; width: 100%; height: 100%; }
-    /* 카메라 영상이 들어갈 캔버스 */
-    #jeeFaceFilterCanvas { width: 100vw; height: 100vh; object-fit: cover; background-color: #000; }
+    body { margin: 0; overflow: hidden; background: #000; position: fixed; width: 100%; height: 100%; }
+    /* 1. 실제 카메라 영상 레이어 */
+    #videoElement { position: absolute; width: 100vw; height: 100vh; object-fit: cover; z-index: 1; }
+    /* 2. 꽃과 주근깨가 그려질 투명 레이어 */
+    #jeeFaceFilterCanvas { position: absolute; width: 100vw; height: 100vh; object-fit: cover; z-index: 2; pointer-events: none; }
+    
     #status {
-      position: absolute; top: 15%; width: 100%; text-align: center;
+      position: absolute; top: 10%; width: 100%; text-align: center;
       color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; z-index: 10;
     }
     #captureBtn {
-      position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+      position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
       padding: 18px 45px; border-radius: 50px; border: none;
       background: linear-gradient(45deg, #ff4d94, #ffb6c1);
       color: white; font-size: 20px; font-weight: bold; z-index: 10;
@@ -23,7 +26,8 @@
   </style>
 </head>
 <body>
-  <div id="status">🌸 카메라 로딩 중...</div>
+  <div id="status">🌸 필터 준비 중...</div>
+  <video id="videoElement" autoplay playsinline muted></video>
   <canvas id='jeeFaceFilterCanvas'></canvas>
   <button id="captureBtn" onclick="takePhoto()">📸 사진 찍기</button>
 
@@ -34,60 +38,52 @@
     freckleImg.src = 'https://i.postimg.cc/7CtB4Fsf/Kakao-Talk-20260209-212618382.png';
     flowerImg.src = 'https://i.postimg.cc/8FXyG2KB/Kakao-Talk-20260209-212618382-01.png';
 
+    // 사진 촬영 및 합성 저장
     function takePhoto() {
+      const video = document.getElementById('videoElement');
       const canvas = document.getElementById('jeeFaceFilterCanvas');
-      const dataUrl = canvas.toDataURL("image/png");
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = canvas.width;
+      finalCanvas.height = canvas.height;
+      const fCtx = finalCanvas.getContext('2d');
+
+      // 영상과 꽃을 하나로 합침
+      fCtx.drawImage(video, 0, 0, finalCanvas.width, finalCanvas.height);
+      fCtx.drawImage(canvas, 0, 0, finalCanvas.width, finalCanvas.height);
+
       const link = document.createElement('a');
-      link.download = '철쭉축제_인생샷.png';
-      link.href = dataUrl;
+      link.download = '철쭉인생샷.png';
+      link.href = finalCanvas.toDataURL("image/png");
       link.click();
-      alert("갤러리나 다운로드 폴더에 저장되었습니다! 🌸");
+      alert("사진이 저장되었습니다! 🌸");
     }
 
     function initApp() {
-      if (typeof JEELIZFACEFILTER === 'undefined') {
-        setTimeout(initApp, 500);
-        return;
-      }
-
       JEELIZFACEFILTER.init({
         canvasId: 'jeeFaceFilterCanvas',
-        // 라이브러리 내부 필수 파일 경로
-        NNCPath: 'https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/', 
-        callbackReady: function(errCode) {
-          if (errCode) {
-            document.getElementById('status').innerHTML = "❌ 카메라 허용이 필요합니다.<br>새로고침 후 '허용'을 눌러주세요!";
+        NNCPath: 'https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/',
+        videoSettings: { videoElement: document.getElementById('videoElement') },
+        callbackReady: function(err) {
+          if (err) {
+            document.getElementById('status').innerHTML = "❌ 카메라 허용 필수 (주소창 AA 확인)";
             return;
           }
           ctx = document.getElementById('jeeFaceFilterCanvas').getContext('2d');
           document.getElementById('status').textContent = "✅ 이제 얼굴을 비춰보세요!";
         },
         callbackTrack: function(detectState) {
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
           if (detectState.detected > 0.6) {
             const x = detectState.x, y = detectState.y, s = detectState.s;
             const w = ctx.canvas.width, h = ctx.canvas.height;
-            
-            // 필터 효과 (살짝 화사하게)
-            ctx.filter = 'brightness(1.1) contrast(1.05)';
-
-            // 주근깨 (이미지가 로드되었을 때만)
-            if (freckleImg.complete) {
-              const fw = s * w * 1.5, fh = s * h * 0.7;
-              ctx.drawImage(freckleImg, (x+0.5)*w - fw/2, (y+0.5)*h, fw, fh);
-            }
-
-            // 철쭉 (이미지가 로드되었을 때만)
-            if (flowerImg.complete) {
-              const fs = s * w * 0.7;
-              ctx.drawImage(flowerImg, (x+0.5+s*0.3)*w, (y+0.5-s*0.9)*h, fs, fs);
-            }
+            if (freckleImg.complete) ctx.drawImage(freckleImg, (x+0.5)*w - (s*w*1.5)/2, (y+0.5)*h, s*w*1.5, s*h*0.7);
+            if (flowerImg.complete) ctx.drawImage(flowerImg, (x+0.5+s*0.3)*w, (y+0.5-s*0.9)*h, s*w*0.7, s*w*0.7);
           }
         }
       });
     }
 
-    // 초기 실행
-    window.addEventListener('load', initApp);
+    window.onload = initApp;
   </script>
 </body>
 </html>
