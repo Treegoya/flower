@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>철쭉축제 인생샷 필터</title>
+  <script src="https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/jeelizFaceFilter.umd.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+    canvas { width: 100vw; height: 100vh; object-fit: cover; }
+    #status {
+      position: absolute; top: 15%; width: 100%; text-align: center;
+      color: white; font-weight: bold; text-shadow: 2px 2px 5px #000; z-index: 10;
+    }
+    #captureBtn {
+      position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+      padding: 18px 45px; border-radius: 50px; border: none;
+      background: linear-gradient(45deg, #ff4d94, #ffb6c1);
+      color: white; font-size: 20px; font-weight: bold; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">🌸 꽃이 피길 기다리고 있어요...</div>
+  <canvas id='jeeFaceFilterCanvas'></canvas>
+  <button id="captureBtn" onclick="takePhoto()">📸 사진 찍기</button>
+
+  <script>
+    let ctx;
+    const flowerImg = new Image();
+    const freckleImg = new Image();
+    freckleImg.src = 'https://i.postimg.cc/7CtB4Fsf/Kakao-Talk-20260209-212618382.png';
+    flowerImg.src = 'https://i.postimg.cc/8FXyG2KB/Kakao-Talk-20260209-212618382-01.png';
+
+    function takePhoto() {
+      const canvas = document.getElementById('jeeFaceFilterCanvas');
+      const link = document.createElement('a');
+      link.download = '철쭉축제_인생샷.png';
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      alert("사진이 찍혔습니다! 갤러리를 확인해주세요. 🌸");
+    }
+
+    function startApp() {
+      if (typeof JEELIZFACEFILTER === 'undefined') {
+        setTimeout(startApp, 500);
+        return;
+      }
+      JEELIZFACEFILTER.init({
+        canvasId: 'jeeFaceFilterCanvas',
+        NNCPath: 'https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/',
+        callbackReady: function(err) {
+          if (err) {
+            document.getElementById('status').innerHTML = "❌ 카메라 허용이 필요합니다.<br>(주소창 옆 AA를 눌러주세요)";
+            return;
+          }
+          ctx = document.getElementById('jeeFaceFilterCanvas').getContext('2d');
+          document.getElementById('status').textContent = "✅ 얼굴에 철쭉이 피었습니다!";
+        },
+        callbackTrack: function(detectState) {
+          if (detectState.detected > 0.6) {
+            const x = detectState.x, y = detectState.y, s = detectState.s;
+            const w = ctx.canvas.width, h = ctx.canvas.height;
+            ctx.clearRect(0, 0, w, h);
+            ctx.filter = 'brightness(1.1) blur(0.3px)';
+            if (freckleImg.complete) ctx.drawImage(freckleImg, (x+0.5)*w - (s*w*1.5)/2, (y+0.5)*h, s*w*1.5, s*h*0.7);
+            if (flowerImg.complete) ctx.drawImage(flowerImg, (x+0.5+s*0.3)*w, (y+0.5-s*0.9)*h, s*w*0.7, s*w*0.7);
+          }
+        }
+      });
+    }
+    window.onload = startApp;
+  </script>
+</body>
+</html>
