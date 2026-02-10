@@ -4,32 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>철쭉축제 인생샷 필터</title>
-  
-  <script src="https://unpkg.com/jeelizfacefilter@1.0.3/dist/jeelizFaceFilter.umd.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/jeelizFaceFilter.umd.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-    #container { position: relative; width: 100vw; height: 100vh; }
-    /* 캔버스가 배경 카메라 영상을 덮지 않도록 투명하게 설정 */
-    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; position: fixed; width: 100%; height: 100%; }
+    /* 카메라 영상이 들어갈 캔버스 */
+    #jeeFaceFilterCanvas { width: 100vw; height: 100vh; object-fit: cover; background-color: #000; }
     #status {
       position: absolute; top: 15%; width: 100%; text-align: center;
-      color: white; font-weight: bold; text-shadow: 2px 2px 5px #000; z-index: 20;
+      color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; z-index: 10;
     }
     #captureBtn {
-      position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+      position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
       padding: 18px 45px; border-radius: 50px; border: none;
       background: linear-gradient(45deg, #ff4d94, #ffb6c1);
-      color: white; font-size: 20px; font-weight: bold; z-index: 20;
+      color: white; font-size: 20px; font-weight: bold; z-index: 10;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
   </style>
 </head>
 <body>
-  <div id="container">
-    <div id="status">🌸 카메라를 불러오는 중...</div>
-    <canvas id='jeeFaceFilterCanvas'></canvas>
-    <button id="captureBtn">📸 사진 찍기</button>
-  </div>
+  <div id="status">🌸 카메라 로딩 중...</div>
+  <canvas id='jeeFaceFilterCanvas'></canvas>
+  <button id="captureBtn" onclick="takePhoto()">📸 사진 찍기</button>
 
   <script>
     let ctx;
@@ -40,45 +36,58 @@
 
     function takePhoto() {
       const canvas = document.getElementById('jeeFaceFilterCanvas');
-      // 화면에 보이는 그대로 저장 (카메라 영상 + 필터)
+      const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement('a');
       link.download = '철쭉축제_인생샷.png';
-      link.href = canvas.toDataURL("image/png");
+      link.href = dataUrl;
       link.click();
-      alert("사진이 저장되었습니다! 🌸");
+      alert("갤러리나 다운로드 폴더에 저장되었습니다! 🌸");
     }
 
-    function startApp() {
+    function initApp() {
       if (typeof JEELIZFACEFILTER === 'undefined') {
-        setTimeout(startApp, 500);
+        setTimeout(initApp, 500);
         return;
       }
+
       JEELIZFACEFILTER.init({
         canvasId: 'jeeFaceFilterCanvas',
-        // 신경망 데이터 경로를 라이브러리 공급처와 맞춤
-        NNCPath: 'https://unpkg.com/jeelizfacefilter@1.0.3/dist/',
-        callbackReady: function(err) {
-          if (err) {
-            document.getElementById('status').innerHTML = "❌ 카메라 허용이 필요합니다!<br>주소창 옆 AA를 눌러 허용해 주세요.";
+        // 라이브러리 내부 필수 파일 경로
+        NNCPath: 'https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/', 
+        callbackReady: function(errCode) {
+          if (errCode) {
+            document.getElementById('status').innerHTML = "❌ 카메라 허용이 필요합니다.<br>새로고침 후 '허용'을 눌러주세요!";
             return;
           }
           ctx = document.getElementById('jeeFaceFilterCanvas').getContext('2d');
-          document.getElementById('status').textContent = "✅ 철쭉 필터 작동 중!";
-          document.getElementById('captureBtn').onclick = takePhoto;
+          document.getElementById('status').textContent = "✅ 이제 얼굴을 비춰보세요!";
         },
         callbackTrack: function(detectState) {
-          // 얼굴 감지 및 렌더링 로직 (기존과 동일)
           if (detectState.detected > 0.6) {
             const x = detectState.x, y = detectState.y, s = detectState.s;
             const w = ctx.canvas.width, h = ctx.canvas.height;
-            ctx.clearRect(0, 0, w, h);
-            if (freckleImg.complete) ctx.drawImage(freckleImg, (x+0.5)*w - (s*w*1.5)/2, (y+0.5)*h, s*w*1.5, s*h*0.7);
-            if (flowerImg.complete) ctx.drawImage(flowerImg, (x+0.5+s*0.3)*w, (y+0.5-s*0.9)*h, s*w*0.7, s*w*0.7);
+            
+            // 필터 효과 (살짝 화사하게)
+            ctx.filter = 'brightness(1.1) contrast(1.05)';
+
+            // 주근깨 (이미지가 로드되었을 때만)
+            if (freckleImg.complete) {
+              const fw = s * w * 1.5, fh = s * h * 0.7;
+              ctx.drawImage(freckleImg, (x+0.5)*w - fw/2, (y+0.5)*h, fw, fh);
+            }
+
+            // 철쭉 (이미지가 로드되었을 때만)
+            if (flowerImg.complete) {
+              const fs = s * w * 0.7;
+              ctx.drawImage(flowerImg, (x+0.5+s*0.3)*w, (y+0.5-s*0.9)*h, fs, fs);
+            }
           }
         }
       });
     }
-    window.onload = startApp;
+
+    // 초기 실행
+    window.addEventListener('load', initApp);
   </script>
 </body>
 </html>
