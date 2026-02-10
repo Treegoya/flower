@@ -7,9 +7,9 @@
   <script src="https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/jeelizFaceFilter.umd.js"></script>
   <style>
     body { margin: 0; overflow: hidden; background: #000; position: fixed; width: 100%; height: 100%; }
-    /* 1. 실제 카메라 영상 레이어 */
+    /* 실제 카메라 영상 레이어 */
     #videoElement { position: absolute; width: 100vw; height: 100vh; object-fit: cover; z-index: 1; }
-    /* 2. 꽃과 주근깨가 그려질 투명 레이어 */
+    /* 꽃 필터 레이어 (배경 투명) */
     #jeeFaceFilterCanvas { position: absolute; width: 100vw; height: 100vh; object-fit: cover; z-index: 2; pointer-events: none; }
     
     #status {
@@ -35,25 +35,27 @@
     let ctx;
     const flowerImg = new Image();
     const freckleImg = new Image();
+    // 이미지 주소
     freckleImg.src = 'https://i.postimg.cc/7CtB4Fsf/Kakao-Talk-20260209-212618382.png';
     flowerImg.src = 'https://i.postimg.cc/8FXyG2KB/Kakao-Talk-20260209-212618382-01.png';
 
-    // 사진 촬영 및 합성 저장
+    // 사진 촬영 (영상 + 꽃 합성)
     function takePhoto() {
       const video = document.getElementById('videoElement');
       const canvas = document.getElementById('jeeFaceFilterCanvas');
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = canvas.width;
-      finalCanvas.height = canvas.height;
-      const fCtx = finalCanvas.getContext('2d');
+      const resultCanvas = document.createElement('canvas');
+      resultCanvas.width = canvas.width;
+      resultCanvas.height = canvas.height;
+      const rCtx = resultCanvas.getContext('2d');
 
-      // 영상과 꽃을 하나로 합침
-      fCtx.drawImage(video, 0, 0, finalCanvas.width, finalCanvas.height);
-      fCtx.drawImage(canvas, 0, 0, finalCanvas.width, finalCanvas.height);
+      // 1. 카메라 영상 먼저 그리기
+      rCtx.drawImage(video, 0, 0, resultCanvas.width, resultCanvas.height);
+      // 2. 그 위에 꽃 필터 얹기
+      rCtx.drawImage(canvas, 0, 0, resultCanvas.width, resultCanvas.height);
 
       const link = document.createElement('a');
       link.download = '철쭉인생샷.png';
-      link.href = finalCanvas.toDataURL("image/png");
+      link.href = resultCanvas.toDataURL("image/png");
       link.click();
       alert("사진이 저장되었습니다! 🌸");
     }
@@ -62,20 +64,27 @@
       JEELIZFACEFILTER.init({
         canvasId: 'jeeFaceFilterCanvas',
         NNCPath: 'https://cdn.jsdelivr.net/npm/jeelizfacefilter/dist/',
-        videoSettings: { videoElement: document.getElementById('videoElement') },
+        // 비디오 엘리먼트를 직접 연결하여 검은 화면 해결
+        videoSettings: {
+          videoElement: document.getElementById('videoElement')
+        },
         callbackReady: function(err) {
           if (err) {
-            document.getElementById('status').innerHTML = "❌ 카메라 허용 필수 (주소창 AA 확인)";
+            document.getElementById('status').innerHTML = "❌ 카메라 허용 필수<br>(주소창 설정에서 카메라 '허용' 클릭)";
             return;
           }
           ctx = document.getElementById('jeeFaceFilterCanvas').getContext('2d');
-          document.getElementById('status').textContent = "✅ 이제 얼굴을 비춰보세요!";
+          document.getElementById('status').textContent = "✅ 얼굴을 비춰보세요!";
         },
         callbackTrack: function(detectState) {
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
           if (detectState.detected > 0.6) {
             const x = detectState.x, y = detectState.y, s = detectState.s;
             const w = ctx.canvas.width, h = ctx.canvas.height;
+            
+            // 뽀얀 효과 (필터 레이어에만 적용)
+            ctx.filter = 'brightness(1.1) blur(0.3px)';
+            
             if (freckleImg.complete) ctx.drawImage(freckleImg, (x+0.5)*w - (s*w*1.5)/2, (y+0.5)*h, s*w*1.5, s*h*0.7);
             if (flowerImg.complete) ctx.drawImage(flowerImg, (x+0.5+s*0.3)*w, (y+0.5-s*0.9)*h, s*w*0.7, s*w*0.7);
           }
